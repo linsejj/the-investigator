@@ -50,39 +50,42 @@ def ask_groq(messages):
         if "401" in err or "invalid_api_key" in err:
             return (
                 "⚠️ Groq rejected the API key (401 Invalid API Key). "
-                "Confirm your full key from https://console.groq.com/keys is in "
-                "`.streamlit/secrets.toml`, then restart the app."
+                "Confirm your full key from https://console.groq.com/keys, then reload."
             )
         return f"⚠️ Groq request failed: {e}"
 
 
+def is_valid_groq_key(key):
+    return bool(key and key.startswith("gsk_") and len(key) >= 40)
+
+
 st.set_page_config(page_title="The Investigator — SOC Copilot", page_icon="🕵️")
 
-# #-> Retrieve the key from st.secrets or the environment, never hard-coded.
-groq_api_key = (st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY") or "").strip()
-key_source = (
-    "st.secrets"
-    if st.secrets.get("GROQ_API_KEY")
-    else "GROQ_API_KEY environment variable"
-    if os.environ.get("GROQ_API_KEY")
-    else None
-)
-if not groq_api_key:
-    st.error("GROQ_API_KEY was not found.")
+# #-> Prefer a valid session key, then st.secrets, then the environment.
+groq_api_key = ""
+for candidate in (
+    st.session_state.get("groq_api_key", ""),
+    (st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY") or "").strip(),
+):
+    if is_valid_groq_key(candidate):
+        groq_api_key = candidate
+        break
+
+if not is_valid_groq_key(groq_api_key):
+    st.warning("Groq API key is missing or incomplete.")
     st.caption(
-        "Add your full key to `.streamlit/secrets.toml`:\n\n"
-        "`GROQ_API_KEY = \"gsk_...\"`\n\n"
-        "Or export it: `export GROQ_API_KEY=\"gsk_...\"`"
+        "`.streamlit/secrets.toml` in this environment still contains only the `gsk_` prefix. "
+        "Paste your **full** key from https://console.groq.com/keys below "
+        "(stored for this browser session only)."
     )
-    st.stop()
-if not groq_api_key.startswith("gsk_") or len(groq_api_key) < 40:
-    st.error("GROQ_API_KEY looks incomplete or invalid.")
-    st.caption(
-        f"Loaded from {key_source}: {len(groq_api_key)} characters "
-        f"(expected 50+ for a real Groq key). "
-        "The file currently contains only the `gsk_` prefix — paste the **full** key from "
-        "https://console.groq.com/keys into `.streamlit/secrets.toml`, save, and restart."
-    )
+    entered = st.text_input("Groq API Key", type="password")
+    if entered:
+        entered = entered.strip()
+        if is_valid_groq_key(entered):
+            st.session_state.groq_api_key = entered
+            st.rerun()
+        else:
+            st.error(f"Key looks incomplete ({len(entered)} characters). Paste the full key.")
     st.stop()
 
 client = Groq(api_key=groq_api_key)
