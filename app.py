@@ -7,6 +7,8 @@ You don't have to WRITE this app — but a tool you can't explain is a tool you
 can't trust, so read it. The pieces worth understanding are marked  #->
 """
 
+import os
+
 import streamlit as st
 from groq import Groq
 from datetime import datetime
@@ -56,17 +58,30 @@ def ask_groq(messages):
 
 st.set_page_config(page_title="The Investigator — SOC Copilot", page_icon="🕵️")
 
-# #-> Retrieve the key from st.secrets, never hard-coded.
-groq_api_key = (st.secrets.get("GROQ_API_KEY") or "").strip()
+# #-> Retrieve the key from st.secrets or the environment, never hard-coded.
+groq_api_key = (st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY") or "").strip()
+key_source = (
+    "st.secrets"
+    if st.secrets.get("GROQ_API_KEY")
+    else "GROQ_API_KEY environment variable"
+    if os.environ.get("GROQ_API_KEY")
+    else None
+)
 if not groq_api_key:
-    st.error("GROQ_API_KEY was not found in st.secrets!")
-    st.caption("Add it to `.streamlit/secrets.toml` as: `GROQ_API_KEY = \"gsk_...\"`")
+    st.error("GROQ_API_KEY was not found.")
+    st.caption(
+        "Add your full key to `.streamlit/secrets.toml`:\n\n"
+        "`GROQ_API_KEY = \"gsk_...\"`\n\n"
+        "Or export it: `export GROQ_API_KEY=\"gsk_...\"`"
+    )
     st.stop()
 if not groq_api_key.startswith("gsk_") or len(groq_api_key) < 40:
     st.error("GROQ_API_KEY looks incomplete or invalid.")
     st.caption(
-        f"Loaded key length: {len(groq_api_key)} characters. "
-        "Get your full key from https://console.groq.com/keys and paste it into `.streamlit/secrets.toml`."
+        f"Loaded from {key_source}: {len(groq_api_key)} characters "
+        f"(expected 50+ for a real Groq key). "
+        "The file currently contains only the `gsk_` prefix — paste the **full** key from "
+        "https://console.groq.com/keys into `.streamlit/secrets.toml`, save, and restart."
     )
     st.stop()
 
