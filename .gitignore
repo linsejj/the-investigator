@@ -3,8 +3,8 @@
 # ==========================================
 *.env
 *.env.*
-!.env.example
-secrets.toml
+# Ignore local Streamlit secrets file
+the-investigator/.streamlit/secrets.toml
 *.pem
 *.key
 *.pfx
