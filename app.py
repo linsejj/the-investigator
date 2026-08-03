@@ -44,15 +44,30 @@ def ask_groq(messages):
         resp = client.chat.completions.create(model=MODEL, messages=messages)
         return resp.choices[0].message.content
     except Exception as e:
+        err = str(e)
+        if "401" in err or "invalid_api_key" in err:
+            return (
+                "⚠️ Groq rejected the API key (401 Invalid API Key). "
+                "Confirm your full key from https://console.groq.com/keys is in "
+                "`.streamlit/secrets.toml`, then restart the app."
+            )
         return f"⚠️ Groq request failed: {e}"
 
 
 st.set_page_config(page_title="The Investigator — SOC Copilot", page_icon="🕵️")
 
 # #-> Retrieve the key from st.secrets, never hard-coded.
-groq_api_key = st.secrets.get("GROQ_API_KEY")
+groq_api_key = (st.secrets.get("GROQ_API_KEY") or "").strip()
 if not groq_api_key:
     st.error("GROQ_API_KEY was not found in st.secrets!")
+    st.caption("Add it to `.streamlit/secrets.toml` as: `GROQ_API_KEY = \"gsk_...\"`")
+    st.stop()
+if not groq_api_key.startswith("gsk_") or len(groq_api_key) < 40:
+    st.error("GROQ_API_KEY looks incomplete or invalid.")
+    st.caption(
+        f"Loaded key length: {len(groq_api_key)} characters. "
+        "Get your full key from https://console.groq.com/keys and paste it into `.streamlit/secrets.toml`."
+    )
     st.stop()
 
 client = Groq(api_key=groq_api_key)
