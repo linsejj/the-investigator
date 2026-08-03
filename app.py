@@ -38,20 +38,25 @@ Cite the specific log evidence for each claim. If something is uncertain, say so
 do not invent technique IDs or events that are not present in the logs."""
 
 
-# #-> The ONE function that talks to the AI. The key is read from st.secrets,
-#     never hard-coded. Both tabs call this.
+# #-> The ONE function that talks to the AI. Both tabs call this.
 def ask_groq(messages):
     try:
-        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
         resp = client.chat.completions.create(model=MODEL, messages=messages)
         return resp.choices[0].message.content
-    except KeyError:
-        return "⚠️ No GROQ_API_KEY found. Add it to .streamlit/secrets.toml and rerun."
     except Exception as e:
         return f"⚠️ Groq request failed: {e}"
 
 
 st.set_page_config(page_title="The Investigator — SOC Copilot", page_icon="🕵️")
+
+# #-> Retrieve the key from st.secrets, never hard-coded.
+groq_api_key = st.secrets.get("GROQ_API_KEY")
+if not groq_api_key:
+    st.error("GROQ_API_KEY was not found in st.secrets!")
+    st.stop()
+
+client = Groq(api_key=groq_api_key)
+
 st.title("🕵️ The Investigator — SOC Copilot")
 
 tab1, tab2 = st.tabs(["Correlate & Triage", "Ask the Investigator"])
